@@ -48,8 +48,8 @@ geo_desic = geodesic()
 # Approximate radius of earth in km
 # R = 6373.0
 R = 6378137
-#file_url = "D:/geo/dongjiang/dongjiang_river_osm_sorted_dissolved.shp"
-file_url = r"c:\Users\jack\Desktop\test\xiangjiang_river_osm_sorted_dissolved.shp"
+file_url = "D:/geo/dongjiang/dongjiang_river_osm_sorted_dissolved.shp"
+# file_url = r"d:\geo\guijiang\lingqu_river_osm_sorted_dissolved.shp"
 
 
 def cal_great_circle_distance(lat1, lon1, lat2, lon2) -> float:
@@ -180,8 +180,8 @@ for i in range(len(route_df)):
 
 route_df["distance"] = distances
 
-mile_stones_df = pd.DataFrame(
-    columns=["lon", "lat", "name", "seg_no", "bearing", "seg_distance"]
+milestones_df = pd.DataFrame(
+    columns=["lon", "lat", "name", "seg_no", "bearing", "seg_distance", "distance"]
 )
 new_dict = {
     "lon": route_df.iloc[0]["lon"],
@@ -189,11 +189,12 @@ new_dict = {
     "name": "0",
     "seg_no": 0,
     "bearing": 0,
-    "seg_distance": route_df.iloc[0]["distance"],
+    "seg_distance": route_df.iloc[1]["distance"],
+    "distance": 0.0
 }
-# mile_stones_df = mile_stones_df.append(new_dict, ignore_index=True)
-mile_stones_df = pd.concat(
-    [mile_stones_df, pd.DataFrame([new_dict])], ignore_index=True
+# milestones_df = milestones_df.append(new_dict, ignore_index=True)
+milestones_df = pd.concat(
+    [milestones_df, pd.DataFrame([new_dict])], ignore_index=True
 )
 
 interval_distance = 1000.0
@@ -219,10 +220,11 @@ for i in range(len(route_df)):
                 "seg_no": i,
                 "bearing": bearing,
                 "seg_distance": interval_distance * mile_stones_i,
+                "distance": interval_distance * mile_stones_i
             }
-            # mile_stones_df = mile_stones_df.append(new_dict, ignore_index=True)
-            mile_stones_df = pd.concat(
-                [mile_stones_df, pd.DataFrame([new_dict])], ignore_index=True
+            # milestones_df = milestones_df.append(new_dict, ignore_index=True)
+            milestones_df = pd.concat(
+                [milestones_df, pd.DataFrame([new_dict])], ignore_index=True
             )
             a_distance = 0
             bearing = None
@@ -232,8 +234,8 @@ for i in range(len(route_df)):
             distance = interval_distance - pre_distance
             if bearing != None:
                 # not first time in while loop
-                lat1 = mile_stones_df.iloc[mile_stones_i - 1]["lat"]
-                lon1 = mile_stones_df.iloc[mile_stones_i - 1]["lon"]
+                lat1 = milestones_df.iloc[mile_stones_i - 1]["lat"]
+                lon1 = milestones_df.iloc[mile_stones_i - 1]["lon"]
                 distance = interval_distance
             if bearing == None:
                 bearing = cal_bearing(lat1, lon1, lat2, lon2)
@@ -247,17 +249,20 @@ for i in range(len(route_df)):
                 "seg_no": i,
                 "bearing": bearing,
                 "seg_distance": interval_distance * mile_stones_i + a_distance,
+                "distance": interval_distance * mile_stones_i
             }
-            # mile_stones_df = mile_stones_df.append(new_dict, ignore_index=True)
-            mile_stones_df = pd.concat(
-                [mile_stones_df, pd.DataFrame([new_dict])], ignore_index=True
+            # milestones_df = milestones_df.append(new_dict, ignore_index=True)
+            milestones_df = pd.concat(
+                [milestones_df, pd.DataFrame([new_dict])], ignore_index=True
             )
         mile_stones_i += 1
 
     bearing = None
 
-geometry = [Point(xy) for xy in zip(mile_stones_df.lon, mile_stones_df.lat)]
-gdf = GeoDataFrame(mile_stones_df, crs="EPSG:4326", geometry=geometry)
+geometry = [Point(xy) for xy in zip(milestones_df.lon, milestones_df.lat)]
+distance = interval_distance * (mile_stones_i - 1) + a_distance
+milestones_df.loc[milestones_df.index[-1], 'distance'] = distance
+gdf = GeoDataFrame(milestones_df, crs="EPSG:4326", geometry=geometry)
 base, ext = os.path.splitext(file_url)
-distance = mile_stones_df.iloc[-1]["seg_distance"]
+# distance = milestones_df.iloc[-1]["seg_distance"]
 gdf.to_file("%s_milestones_%0.2fkm.shp" % (base, distance / 1000), encoding="utf-8")
